@@ -37,7 +37,7 @@ function buildTransport():
           app: process.env.SERVICE_NAME ?? "observability-test",
           env: process.env.NODE_ENV ?? "development",
         },
-        propsToLabels: ["level"],
+        propsToLabels: ["levelName"],
         batching: true,
         interval: 5,
       },
@@ -47,16 +47,28 @@ function buildTransport():
   return targets.length === 0 ? undefined : { targets };
 }
 
+const LEVEL_NAMES: Record<number, string> = {
+  10: "trace",
+  20: "debug",
+  30: "info",
+  40: "warn",
+  50: "error",
+  60: "fatal",
+};
+
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
-  formatters: {
-    level: (label) => ({ level: label }),
-  },
-  mixin() {
+  mixin(_mergeObject, level) {
     const span = trace.getActiveSpan();
-    if (!span?.isRecording()) return {};
-    const ctx = span.spanContext();
-    return { traceId: ctx.traceId, spanId: ctx.spanId };
+    const extra: Record<string, string> = {
+      levelName: LEVEL_NAMES[level] ?? "unknown",
+    };
+    if (span?.isRecording()) {
+      const ctx = span.spanContext();
+      extra.traceId = ctx.traceId;
+      extra.spanId = ctx.spanId;
+    }
+    return extra;
   },
   transport: buildTransport(),
 });
