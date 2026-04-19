@@ -1,0 +1,85 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - prod
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write .env to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p /opt/app /opt/app/secrets
+            cat > /opt/app/.env << 'ENVEOF'
+            ${{ secrets.APP_ENV }}
+            ENVEOF
+
+      - name: Write server-ca.pem to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            echo "${{ secrets.SERVER_CA_PEM_B64 }}" | base64 -d > /opt/app/secrets/server-ca.pem
+            chmod 600 /opt/app/secrets/server-ca.pem
+
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/app
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            GITHUB_REPOSITORY=${{ github.repository }} docker compose -f docker-compose.prod.yml pull
+            GITHUB_REPOSITORY=${{ github.repository }} docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            docker image prune -f
