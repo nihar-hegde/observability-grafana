@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Local dev only — disabled when running on obs VPS
+  # - job_name: "api-local"
+  #   static_configs:
+  #     - targets: ["host.docker.internal:5000"]
+  #   metrics_path: /metrics
+
+  # Production: obs VPS → Cloudflare → Nginx → Express app
+  - job_name: "api-prod"
+    static_configs:
+      - targets: ["server.nihar.xyz"]
+    metrics_path: /metrics
+    scheme: https
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
