@@ -49,6 +49,9 @@ function buildTransport():
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
   mixin() {
     const span = trace.getActiveSpan();
     if (!span?.isRecording()) return {};
