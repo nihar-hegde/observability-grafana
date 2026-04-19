@@ -37,6 +37,7 @@ function buildTransport():
           app: process.env.SERVICE_NAME ?? "observability-test",
           env: process.env.NODE_ENV ?? "development",
         },
+        propsToLabels: ["level"],
         batching: true,
         interval: 5,
       },

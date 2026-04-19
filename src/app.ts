@@ -13,7 +13,22 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(pinoHttp({ logger }));
+
+let _httpLogCounter = 0;
+app.use(
+  pinoHttp({
+    logger,
+    autoLogging: {
+      ignore: (req) => req.url === "/metrics",
+    },
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return "error";
+      if (res.statusCode >= 400) return "warn";
+      _httpLogCounter++;
+      return _httpLogCounter % 10 === 0 ? "info" : "silent";
+    },
+  }),
+);
 app.use(metricsMiddleware);
 
 app.get("/metrics", async (_req, res) => {
