@@ -49,6 +49,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Copy docker-compose to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "/opt/app"
+
       - name: Write .env to VM
         uses: appleboy/ssh-action@v1
         with:

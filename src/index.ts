@@ -1,3 +1,4 @@
+import "./telemetry.js";
 import { env } from "./config/env.js";
 import app from "./app.js";
 
