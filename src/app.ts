@@ -16,12 +16,12 @@ app.use(express.json());
 app.use(pinoHttp({ logger }));
 app.use(metricsMiddleware);
 
-app.use(chaosMiddleware);
-
 app.get("/metrics", async (_req, res) => {
   res.set("Content-Type", register.contentType);
   res.end(await register.metrics());
 });
+
+app.use(chaosMiddleware);
 
 app.use("/", healthRoute);
 app.use("/todos", todoRoute);
